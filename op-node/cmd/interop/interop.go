@@ -70,6 +70,7 @@ var InteropDevSetup = &cli.Command{
 		mnemonicFlag,
 		artifactsDirFlag,
 		foundryDirFlag,
+		outDirFlag,
 	}, oplog.CLIFlags(EnvPrefix)...)),
 	Action: func(cliCtx *cli.Context) error {
 		logCfg := oplog.ReadCLIConfig(cliCtx)
@@ -110,49 +111,38 @@ var InteropDevSetup = &cli.Command{
 			return fmt.Errorf("failed to deploy interop dev setup: %w", err)
 		}
 		outDir := cliCtx.String(outDirFlag.Name)
-		if err := os.MkdirAll(outDir, 0644); err != nil {
-			return fmt.Errorf("failed to create output dir: %w", err)
-		}
 		// Write deployments
 		{
 			deploymentsDir := filepath.Join(outDir, "deployments")
-			if err := os.MkdirAll(deploymentsDir, 0644); err != nil {
-				return fmt.Errorf("failed to create deployments output dir: %w", err)
-			}
-			if err := writeJson(filepath.Join(deploymentsDir, "l1.json"), worldDeployment.L1); err != nil {
+			l1Dir := filepath.Join(deploymentsDir, "l1")
+			if err := writeJson(filepath.Join(l1Dir, "common.json"), worldDeployment.L1); err != nil {
 				return fmt.Errorf("failed to write L1 deployment data: %w", err)
 			}
-			if err := writeJson(filepath.Join(deploymentsDir, "superchain.json"), worldDeployment.Superchain); err != nil {
+			if err := writeJson(filepath.Join(l1Dir, "superchain.json"), worldDeployment.Superchain); err != nil {
 				return fmt.Errorf("failed to write Superchain deployment data: %w", err)
 			}
-			l2DeploymentsDir := filepath.Join(deploymentsDir, "l2")
-			if err := os.MkdirAll(l2DeploymentsDir, 0644); err != nil {
-				return fmt.Errorf("failed to create deployments output dir: %w", err)
-			}
+			l2sDir := filepath.Join(deploymentsDir, "l2")
 			for id, dep := range worldDeployment.L2s {
-				if err := writeJson(filepath.Join(l2DeploymentsDir, id+".json"), dep); err != nil {
+				l2Dir := filepath.Join(l2sDir, id)
+				if err := writeJson(filepath.Join(l2Dir, "addresses.json"), dep); err != nil {
 					return fmt.Errorf("failed to write L2 %s deployment data: %w", id, err)
 				}
 			}
 		}
-		// write configs
+		// write genesis
 		{
-			configsDir := filepath.Join(outDir, "configs")
-			if err := os.MkdirAll(configsDir, 0644); err != nil {
-				return fmt.Errorf("failed to create deployments output dir: %w", err)
+			genesisDir := filepath.Join(outDir, "genesis")
+			l1Dir := filepath.Join(genesisDir, "l1")
+			if err := writeJson(filepath.Join(l1Dir, "genesis.json"), worldOutput.L1.Genesis); err != nil {
+				return fmt.Errorf("failed to write L1 genesis data: %w", err)
 			}
-			if err := writeJson(filepath.Join(configsDir, "l1-genesis.json"), worldOutput.L1); err != nil {
-				return fmt.Errorf("failed to write L1 deployment data: %w", err)
-			}
-			l2ConfigsDir := filepath.Join(configsDir, "l2")
-			if err := os.MkdirAll(l2ConfigsDir, 0644); err != nil {
-				return fmt.Errorf("failed to create deployments output dir: %w", err)
-			}
+			l2sDir := filepath.Join(genesisDir, "l2")
 			for id, dep := range worldOutput.L2s {
-				if err := writeJson(filepath.Join(l2ConfigsDir, id+"-genesis.json"), dep.Genesis); err != nil {
+				l2Dir := filepath.Join(l2sDir, id)
+				if err := writeJson(filepath.Join(l2Dir, "genesis.json"), dep.Genesis); err != nil {
 					return fmt.Errorf("failed to write L2 %s genesis config: %w", id, err)
 				}
-				if err := writeJson(filepath.Join(l2ConfigsDir, id+"-rollup.json"), dep.Genesis); err != nil {
+				if err := writeJson(filepath.Join(l2Dir, "rollup.json"), dep.RollupCfg); err != nil {
 					return fmt.Errorf("failed to write L2 %s rollup config: %w", id, err)
 				}
 			}
@@ -162,6 +152,10 @@ var InteropDevSetup = &cli.Command{
 }
 
 func writeJson(path string, content any) error {
+	outDir := filepath.Dir(path)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create dir %q: %w", outDir, err)
+	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open %q: %w", path, err)

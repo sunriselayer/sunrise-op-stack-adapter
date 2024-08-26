@@ -19,26 +19,28 @@ else
     echo "Creating new interop devnet chain configs"
 fi
 
-mkdir ".devnet-interop"
+export OP_INTEROP_MNEMONIC="test test test test test test test test test test test junk"
 
-export CONTRACTS_ARTIFACTS_DIR="../packages/contracts-bedrock"
-
-cd "../.devnet-interop/"
-
-# OTOD: config interop genesis CLI
-go run ../op-node interop --todo
+go run ./op-node/cmd interop dev-setup \
+  --artifacts-dir=packages/contracts-bedrock/forge-artifacts \
+  --foundry-dir=packages/contracts-bedrock \
+  --l1.chainid=900100 \
+  --l2.chainids=900200,900201 \
+  --out-dir=".devnet-interop" \
+  --log.format=logfmt \
+  --log.level=info
 
 # create L1 CL genesis
 eth2-testnet-genesis deneb \
-  --config=./beacon-data/config.yaml \
+  --config=./ops-bedrock/beacon-data/config.yaml \
   --preset-phase0=minimal \
   --preset-altair=minimal \
   --preset-bellatrix=minimal \
   --preset-capella=minimal \
   --preset-deneb=minimal \
-  --eth1-config=../.devnet-interop/out/l1/genesis.json \
-  --state-output=../.devnet-interop/out/l1/beaconstate.ssz \
-  --tranches-dir=../.devnet-interop/out/l1/tranches \
-  --mnemonics=mnemonics.yaml \
+  --eth1-config=.devnet-interop/genesis/l1/genesis.json \
+  --state-output=.devnet-interop/genesis/l1/beaconstate.ssz \
+  --tranches-dir=.devnet-interop/genesis/l1/tranches \
+  --mnemonics=./ops-bedrock/mnemonics.yaml \
   --eth1-withdrawal-address=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
   --eth1-match-genesis-time
