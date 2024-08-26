@@ -44,3 +44,27 @@ eth2-testnet-genesis deneb \
   --mnemonics=./ops-bedrock/mnemonics.yaml \
   --eth1-withdrawal-address=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
   --eth1-match-genesis-time
+
+# write env files for each L2 service
+
+chain_env=".devnet-interop/env/l2/900200"
+mkdir -p "$chain_env"
+key_cmd="go run ./op-node/cmd interop devkey secret --domain=chain-operator --chainid=900200"
+# op-node
+echo "OP_NODE_P2P_SEQUENCER_KEY=$($key_cmd --name=sequencer-p2p)" >> "$chain_env/op-node.env"
+# proposer
+echo "OP_PROPOSER_PRIVATE_KEY=$($key_cmd --name=proposer)" >> "$chain_env/op-proposer.env"
+echo "OP_PROPOSER_GAME_FACTORY_ADDRESS=$(jq -r .DisputeGameFactoryProxy .devnet-interop/deployments/l2/900200/addresses.json)" >> "$chain_env/op-proposer.env"
+# batcher
+echo "OP_BATCHER_PRIVATE_KEY=$($key_cmd --name=batcher)" >> "$chain_env/op-batcher.env"
+
+chain_env=".devnet-interop/env/l2/900201"
+mkdir -p "$chain_env"
+key_cmd="go run ./op-node/cmd interop devkey secret --domain=chain-operator --chainid=900201"
+# op-node
+echo "OP_NODE_P2P_SEQUENCER_KEY=$($key_cmd --name=sequencer-p2p)" >> "$chain_env/op-node.env"
+# proposer
+echo "OP_PROPOSER_PRIVATE_KEY=$($key_cmd --name=proposer)" >> "$chain_env/op-proposer.env"
+echo "OP_PROPOSER_GAME_FACTORY_ADDRESS=$(jq -r .DisputeGameFactoryProxy .devnet-interop/deployments/l2/900201/addresses.json)" >> "$chain_env/op-proposer.env"
+# batcher
+echo "OP_BATCHER_PRIVATE_KEY=$($key_cmd --name=batcher)" >> "$chain_env/op-batcher.env"

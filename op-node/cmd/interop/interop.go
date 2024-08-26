@@ -3,8 +3,10 @@ package interop
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	op_service "github.com/ethereum-optimism/optimism/op-service"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var EnvPrefix = "OP_INTEROP"
@@ -37,11 +40,6 @@ var (
 		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "TIMESTAMP"),
 		Usage:   "Will use current timestamp, plus 5 seconds, if not set",
 	}
-	mnemonicFlag = &cli.StringFlag{
-		Name:    "mnemonic",
-		Value:   devkeys.TestMnemonic,
-		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "MNEMONIC"),
-	}
 	artifactsDirFlag = &cli.StringFlag{
 		Name:    "artifacts-dir",
 		Value:   "packages/contracts-bedrock/forge-artifacts",
@@ -57,6 +55,27 @@ var (
 		Name:    "out-dir",
 		Value:   ".interop-devnet",
 		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "OUT_DIR"),
+	}
+	// used in both dev-setup and devkey commands
+	mnemonicFlag = &cli.StringFlag{
+		Name:    "mnemonic",
+		Value:   devkeys.TestMnemonic,
+		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "MNEMONIC"),
+	}
+	// for devkey command
+	devkeyDomainFlag = &cli.StringFlag{
+		Name:    "domain",
+		Value:   "chain-operator",
+		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "DEVKEY_DOMAIN"),
+	}
+	devkeyChainIdFlag = &cli.Uint64Flag{
+		Name:    "chainid",
+		Value:   0,
+		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "DEVKEY_CHAINID"),
+	}
+	devkeyNameFlag = &cli.StringFlag{
+		Name:    "name",
+		EnvVars: op_service.PrefixEnvVar(EnvPrefix, "DEVKEY_NAME"),
 	}
 )
 
@@ -169,10 +188,125 @@ func writeJson(path string, content any) error {
 	return nil
 }
 
+var DevKeySecretCmd = &cli.Command{
+	Name:  "secret",
+	Usage: "Retrieve devkey secret, by specifying domain, chain ID, name.",
+	Flags: cliapp.ProtectFlags([]cli.Flag{
+		mnemonicFlag,
+		devkeyDomainFlag,
+		devkeyChainIdFlag,
+		devkeyNameFlag,
+	}),
+	Action: func(context *cli.Context) error {
+		mnemonic := context.String(mnemonicFlag.Name)
+		domain := context.String(devkeyDomainFlag.Name)
+		chainID := context.Uint64(devkeyChainIdFlag.Name)
+		chainIDBig := new(big.Int).SetUint64(chainID)
+		name := context.String(devkeyNameFlag.Name)
+		k, err := parseKey(domain, chainIDBig, name)
+		if err != nil {
+			return err
+		}
+		mnemonicKeys, err := devkeys.NewMnemonicDevKeys(mnemonic)
+		if err != nil {
+			return err
+		}
+		secret, err := mnemonicKeys.Secret(k)
+		if err != nil {
+			return err
+		}
+		secretBin := crypto.FromECDSA(secret)
+		_, err = fmt.Fprintf(context.App.Writer, "%x", secretBin)
+		if err != nil {
+			return fmt.Errorf("failed to output secret key: %w", err)
+		}
+		return nil
+	},
+}
+
+var DevKeyAddressCmd = &cli.Command{
+	Name:  "address",
+	Usage: "Retrieve devkey address, by specifying domain, chain ID, name.",
+	Flags: cliapp.ProtectFlags([]cli.Flag{
+		mnemonicFlag,
+		devkeyDomainFlag,
+		devkeyChainIdFlag,
+		devkeyNameFlag,
+	}),
+	Action: func(context *cli.Context) error {
+		mnemonic := context.String(mnemonicFlag.Name)
+		domain := context.String(devkeyDomainFlag.Name)
+		chainID := context.Uint64(devkeyChainIdFlag.Name)
+		chainIDBig := new(big.Int).SetUint64(chainID)
+		name := context.String(devkeyNameFlag.Name)
+		k, err := parseKey(domain, chainIDBig, name)
+		if err != nil {
+			return err
+		}
+		mnemonicKeys, err := devkeys.NewMnemonicDevKeys(mnemonic)
+		if err != nil {
+			return err
+		}
+		addr, err := mnemonicKeys.Address(k)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(context.App.Writer, "%s", addr)
+		if err != nil {
+			return fmt.Errorf("failed to output address: %w", err)
+		}
+		return nil
+	},
+}
+
+var DevKeyCmd = &cli.Command{
+	Name:  "devkey",
+	Usage: "Retrieve devkey secret or address",
+	Subcommands: cli.Commands{
+		DevKeySecretCmd,
+		DevKeyAddressCmd,
+	},
+}
+
+func parseKey(domain string, chainID *big.Int, name string) (devkeys.Key, error) {
+	switch domain {
+	case "user":
+		index, err := strconv.ParseUint(name, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse user index: %w", err)
+		}
+		return devkeys.ChainUserKey{
+			ChainID: chainID,
+			Index:   index,
+		}, nil
+	case "chain-operator":
+		var role devkeys.ChainOperatorRole
+		if err := role.Parse(name); err != nil {
+			return nil, fmt.Errorf("failed to parse chain operator role: %w", err)
+		}
+		return devkeys.ChainOperatorKey{
+			ChainID: chainID,
+			Role:    role,
+		}, nil
+	case "superchain-operator":
+		var role devkeys.SuperchainOperatorRole
+		if err := role.Parse(name); err != nil {
+			return nil, fmt.Errorf("failed to parse chain operator role: %w", err)
+		}
+		return devkeys.SuperchainOperatorKey{
+			ChainID: chainID,
+			Role:    role,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown devkey domain %q", domain)
+	}
+}
+
 var InteropCmd = &cli.Command{
 	Name:  "interop",
 	Usage: "Experimental tools for OP-Stack interop networks.",
 	Subcommands: cli.Commands{
 		InteropDevSetup,
+		DevKeyCmd,
 	},
 }

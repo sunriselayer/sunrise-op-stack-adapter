@@ -12,8 +12,6 @@ volumes:
   safedb_b_data:
   supervisor_data:
 
-# TODO: reconfigure keys, using interop key CLI
-
 services:
 
   l1:
@@ -26,8 +24,8 @@ services:
       - "7060:6060"
     volumes:
       - "l1_data:/db"
-      - "${PWD}/../.devnet-interop/genesis-l1.json:/genesis.json"
-      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/.devnet-interop/genesis/l1/genesis.json:/genesis.json"
+      - "${PWD}/ops-bedrock/test-jwt-secret.txt:/config/jwt-secret.txt"
     environment:
       GETH_MINER_RECOMMIT: 100ms
 
@@ -42,10 +40,10 @@ services:
       - "5052:5052"
     volumes:
       - "l1_bn_data:/db"
-      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
-      - "${PWD}/beacon-data/config.yaml:/genesis/config.yaml"
-      - "${PWD}/beacon-data/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
-      - "${PWD}/../.devnet-interop/genesis-l1.ssz:/genesis/genesis.ssz"
+      - "${PWD}/ops-bedrock/test-jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/ops-bedrock/beacon-data/config.yaml:/genesis/config.yaml"
+      - "${PWD}/ops-bedrock/beacon-data/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
+      - "${PWD}/.devnet-interop/genesis/l1/beaconstate.ssz:/genesis/genesis.ssz"
     environment:
       LH_EXECUTION_ENDPOINT: "http://l1:8551"
     entrypoint:
@@ -61,11 +59,11 @@ services:
         dockerfile: l1-lighthouse.Dockerfile
     volumes:
       - "l1_vc_data:/db"
-      - "${PWD}/beacon-data/data/keys:/validator_setup/validators"
-      - "${PWD}/beacon-data/data/secrets:/validator_setup/secrets"
-      - "${PWD}/beacon-data/config.yaml:/genesis/config.yaml"
-      - "${PWD}/beacon-data/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
-      - "${PWD}/../.devnet-interop/genesis-l1.ssz:/genesis/genesis.ssz"
+      - "${PWD}/ops-bedrock/beacon-data/data/keys:/validator_setup/validators"
+      - "${PWD}/ops-bedrock/beacon-data/data/secrets:/validator_setup/secrets"
+      - "${PWD}/ops-bedrock/beacon-data/config.yaml:/genesis/config.yaml"
+      - "${PWD}/ops-bedrock/beacon-data/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
+      - "${PWD}/.devnet-interop/genesis/l1/beaconstate.ssz:/genesis/genesis.ssz"
     environment:
       LH_BEACON_NODES: "http://l1-bn:5052/"
     entrypoint:
@@ -81,8 +79,8 @@ services:
       - "8060:6060"
     volumes:
       - "l2_a_data:/db"
-      - "${PWD}/../.devnet-interop/genesis-l2-a.json:/genesis.json"
-      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/.devnet-interop/genesis/l2/900200/genesis.json:/genesis.json"
+      - "${PWD}/ops-bedrock/test-jwt-secret.txt:/config/jwt-secret.txt"
     entrypoint:  # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
       - "/entrypoint.sh"
@@ -98,8 +96,8 @@ services:
       - "8060:6060"
     volumes:
       - "l2_a_data:/db"
-      - "${PWD}/../.devnet-interop/genesis-l2-b.json:/genesis.json"
-      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/.devnet-interop/genesis/l2/900201/genesis.json:/genesis.json"
+      - "${PWD}/ops-bedrock/test-jwt-secret.txt:/config/jwt-secret.txt"
     entrypoint:  # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
       - "/entrypoint.sh"
@@ -140,7 +138,6 @@ services:
       dockerfile: ops/docker/op-stack-go/Dockerfile
       target: op-node-target
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:devnet
-    # p2p seq key addr: 0x84c7EAD5EF72Fc376617A8b3c17da24d95Bdc8c2
     command: >
       op-node
       --l1=ws://l1:8546
@@ -152,7 +149,6 @@ services:
       --sequencer.enabled
       --sequencer.l1-confs=0
       --verifier.l1-confs=0
-      --p2p.sequencer.key=d6d2d225174aeffe7dec4d6bd8980aaf2b24c5c0fd481ea7191af94ed8b54aca
       --rollup.config=/rollup.json
       --rpc.addr=0.0.0.0
       --rpc.port=8545
@@ -161,7 +157,6 @@ services:
       --p2p.listen.udp=9003
       --p2p.scoring.peers=light
       --p2p.ban.peers=true
-      --p2p.priv.raw=84173a002bde07fa4e3fa989e6fd21707f923d6136e1486fb367ff0e666ecede
       --metrics.enabled
       --metrics.addr=0.0.0.0
       --metrics.port=7300
@@ -175,9 +170,11 @@ services:
       - "6060:6060"
     volumes:
       - "safedb_a_data:/db"
-      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
-      - "${PWD}/../.devnet-interop/rollup-a.json:/rollup.json"
+      - "${PWD}/ops-bedrock/test-jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/.devnet-interop/genesis/l2/900200/rollup.json:/rollup.json"
       - op_log:/op_log
+    env_file:
+      - "${PWD}/.devnet-interop/env/l2/900200/op-node.env"
 
   op-node-b:
     depends_on:
@@ -191,7 +188,6 @@ services:
       dockerfile: ops/docker/op-stack-go/Dockerfile
       target: op-node-target
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:devnet
-    # p2p seq key addr: 0x35981c5F25A5dc24B148e5c0370833Bb13d9E1C4
     command: >
       op-node
       --l1=ws://l1:8546
@@ -203,7 +199,6 @@ services:
       --sequencer.enabled
       --sequencer.l1-confs=0
       --verifier.l1-confs=0
-      --p2p.sequencer.key=693735dd50656650d39861b4afa7bb140fbd01b61e391b2989127c32077c56db
       --rollup.config=/rollup.json
       --rpc.addr=0.0.0.0
       --rpc.port=8545
@@ -212,7 +207,6 @@ services:
       --p2p.listen.udp=9003
       --p2p.scoring.peers=light
       --p2p.ban.peers=true
-      --p2p.priv.raw=e9fe4082a4beb2609c516979c692c667cbd9e0779328ed92574a26678f6cc8dc
       --metrics.enabled
       --metrics.addr=0.0.0.0
       --metrics.port=7300
@@ -226,9 +220,11 @@ services:
       - "6060:6060"
     volumes:
       - "safedb_b_data:/db"
-      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
-      - "${PWD}/../.devnet-interop/rollup-b.json:/rollup.json"
+      - "${PWD}/ops-bedrock/test-jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/.devnet-interop/genesis/l2/900201/rollup.json:/rollup.json"
       - op_log:/op_log
+    env_file:
+      - "${PWD}/.devnet-interop/env/l2/900201/op-node.env"
 
   op-proposer-a:
     depends_on:
@@ -243,21 +239,19 @@ services:
       - "6062:6060"
       - "7302:7300"
       - "6546:8545"
-    # proposer addr: 0x71b4a2d9B91726bdb5849D928967A1654D7F3de7
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1:8545
       OP_PROPOSER_ROLLUP_RPC: http://op-node-a:8545
       OP_PROPOSER_POLL_INTERVAL: 1s
       OP_PROPOSER_NUM_CONFIRMATIONS: 1
-      OP_PROPOSER_MNEMONIC: test test test test test test test test test test test junk
-      OP_PROPOSER_L2_OUTPUT_HD_PATH: "m/44'/60'/0'/1/1"
-      OP_PROPOSER_GAME_FACTORY_ADDRESS: "${DGF_ADDRESS}"
-      OP_PROPOSER_GAME_TYPE: "${DG_TYPE}"
-      OP_PROPOSER_PROPOSAL_INTERVAL: "${PROPOSAL_INTERVAL}"
+      OP_PROPOSER_GAME_TYPE: "254"
+      OP_PROPOSER_PROPOSAL_INTERVAL: "12s"
       OP_PROPOSER_PPROF_ENABLED: "true"
       OP_PROPOSER_METRICS_ENABLED: "true"
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
       OP_PROPOSER_RPC_ENABLE_ADMIN: "true"
+    env_file:
+      - "${PWD}/.devnet-interop/env/l2/900200/op-proposer.env"
 
   op-proposer-b:
     depends_on:
@@ -272,21 +266,19 @@ services:
       - "6062:6060"
       - "7302:7300"
       - "6546:8545"
-    # proposer addr: 0x8c408c9ce6718F4a3AFa7860f2E7B190B25fBDfA
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1:8545
       OP_PROPOSER_ROLLUP_RPC: http://op-node-b:8545
       OP_PROPOSER_POLL_INTERVAL: 1s
       OP_PROPOSER_NUM_CONFIRMATIONS: 1
-      OP_PROPOSER_MNEMONIC: test test test test test test test test test test test junk  # TODO
-      OP_PROPOSER_L2_OUTPUT_HD_PATH: "m/44'/60'/0'/2/1"
-      OP_PROPOSER_GAME_FACTORY_ADDRESS: "${DGF_ADDRESS}"
-      OP_PROPOSER_GAME_TYPE: "${DG_TYPE}"
-      OP_PROPOSER_PROPOSAL_INTERVAL: "${PROPOSAL_INTERVAL}"
+      OP_PROPOSER_GAME_TYPE: "254"
+      OP_PROPOSER_PROPOSAL_INTERVAL: "12s"
       OP_PROPOSER_PPROF_ENABLED: "true"
       OP_PROPOSER_METRICS_ENABLED: "true"
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
       OP_PROPOSER_RPC_ENABLE_ADMIN: "true"
+    env_file:
+      - "${PWD}/.devnet-interop/env/l2/900201/op-proposer.env"
 
   op-batcher-a:
     depends_on:
@@ -302,7 +294,6 @@ services:
       - "6061:6060"
       - "7301:7300"
       - "6545:8545"
-    # batcher addr: 0xCA55aC8514b25C660151a8AE0c90f116DF160daa
     environment:
       OP_BATCHER_L1_ETH_RPC: http://l1:8545
       OP_BATCHER_L2_ETH_RPC: http://l2-a:8545
@@ -311,14 +302,14 @@ services:
       OP_BATCHER_SUB_SAFETY_MARGIN: 4 # SWS is 15, ChannelTimeout is 40
       OP_BATCHER_POLL_INTERVAL: 1s
       OP_BATCHER_NUM_CONFIRMATIONS: 1
-      OP_BATCHER_MNEMONIC: test test test test test test test test test test test junk
-      OP_BATCHER_SEQUENCER_HD_PATH: "m/44'/60'/0'/1/2"
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
       OP_BATCHER_BATCH_TYPE:
       # uncomment to use blobs
       # OP_BATCHER_DATA_AVAILABILITY_TYPE: blobs
+    env_file:
+      - "${PWD}/.devnet-interop/env/l2/900200/op-batcher.env"
 
   op-batcher-b:
     depends_on:
@@ -334,7 +325,6 @@ services:
       - "6061:6060"
       - "7301:7300"
       - "6545:8545"
-    # batcher addr: 0x252a3336Fb2A4352D1bD3b139f4e540AA45236bd
     environment:
       OP_BATCHER_L1_ETH_RPC: http://l1:8545
       OP_BATCHER_L2_ETH_RPC: http://l2-b:8545
@@ -343,11 +333,11 @@ services:
       OP_BATCHER_SUB_SAFETY_MARGIN: 4 # SWS is 15, ChannelTimeout is 40
       OP_BATCHER_POLL_INTERVAL: 1s
       OP_BATCHER_NUM_CONFIRMATIONS: 1
-      OP_BATCHER_MNEMONIC: test test test test test test test test test test test junk
-      OP_BATCHER_SEQUENCER_HD_PATH: "m/44'/60'/0'/2/2"
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
       OP_BATCHER_BATCH_TYPE:
       # uncomment to use blobs
       # OP_BATCHER_DATA_AVAILABILITY_TYPE: blobs
+    env_file:
+      - "${PWD}/.devnet-interop/env/l2/900201/op-batcher.env"
