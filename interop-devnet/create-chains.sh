@@ -7,7 +7,7 @@ if [ -f "versions.json" ]; then
     echo "Running create-chains script."
 else
     echo "Cannot run create-chains script, must be in root of repository, but currently in:"
-    echo "$(pwd)"
+    pwd
     exit 1
 fi
 
