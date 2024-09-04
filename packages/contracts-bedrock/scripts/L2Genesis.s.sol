@@ -128,9 +128,9 @@ contract L2Genesis is Deployer {
         //  The setUp() is skipped (since we insert a custom DeployConfig, and do not use Artifacts)
         deployer = makeAddr("deployer");
         runWithOptions(OutputMode.NONE, Config.fork(), L1Dependencies({
-            l1CrossDomainMessengerProxy: vm.envAddress("L2GENESIS_L1CrossDomainMessengerProxy"),
-            l1StandardBridgeProxy: vm.envAddress("L2GENESIS_L1StandardBridgeProxy"),
-            l1ERC721BridgeProxy: vm.envAddress("L2GENESIS_L1ERC721BridgeProxy")
+            l1CrossDomainMessengerProxy: payable(vm.envAddress("L2GENESIS_L1CrossDomainMessengerProxy")),
+            l1StandardBridgeProxy: payable(vm.envAddress("L2GENESIS_L1StandardBridgeProxy")),
+            l1ERC721BridgeProxy: payable(vm.envAddress("L2GENESIS_L1ERC721BridgeProxy"))
         }));
     }
 
@@ -519,7 +519,7 @@ contract L2Genesis is Deployer {
 
     /// @notice Sets all the preinstalls.
     function setPreinstalls() public {
-        address tmpSetPreinstalls = address(uint16(uint256(keccak256("SetPreinstalls"))));
+        address tmpSetPreinstalls = address(uint160(uint256(keccak256("SetPreinstalls"))));
         vm.etch(tmpSetPreinstalls, vm.getDeployedCode("SetPreinstalls.s.sol:SetPreinstalls"));
         SetPreinstalls(tmpSetPreinstalls).setPreinstalls();
         vm.etch(tmpSetPreinstalls, "");
