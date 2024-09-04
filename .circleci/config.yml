@@ -530,6 +530,10 @@ jobs:
     docker:
       - image: <<pipeline.parameters.ci_builder_image>>
     resource_class: xlarge
+    parameters:
+      test_command:
+        type: string
+        default: "just test"
     steps:
       - checkout
       - check-changed:
@@ -545,7 +549,7 @@ jobs:
           working_directory: packages/contracts-bedrock
       - run:
           name: run tests
-          command: just test
+          command: << parameters.test_command >>
           environment:
             FOUNDRY_PROFILE: ci
           working_directory: packages/contracts-bedrock
@@ -1489,7 +1493,12 @@ workflows:
     jobs:
       - pnpm-monorepo:
           name: pnpm-monorepo
-      - contracts-bedrock-tests
+      - contracts-bedrock-tests:
+          name: contracts-bedrock-tests
+          test_command: "just test"
+      - contracts-bedrock-tests:
+          name: contracts-bedrock-tests-heavy-fuzz-modified-tests
+          test_command: "just test-heavy-fuzz-modified-tests"
       - contracts-bedrock-coverage
       - contracts-bedrock-checks:
           requires:
