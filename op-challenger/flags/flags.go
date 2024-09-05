@@ -554,6 +554,7 @@ func NewConfigFromCLI(ctx *cli.Context, logger log.Logger) (*config.Config, erro
 			SnapshotFreq:     ctx.Uint(CannonSnapshotFreqFlag.Name),
 			InfoFreq:         ctx.Uint(CannonInfoFreqFlag.Name),
 			DebugInfo:        true,
+			BinarySnapshots:  true,
 		},
 		CannonAbsolutePreState:        ctx.String(CannonPreStateFlag.Name),
 		CannonAbsolutePreStateBaseURL: cannonPrestatesURL,
