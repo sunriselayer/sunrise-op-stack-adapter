@@ -5,10 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"math/big"
-
-	"github.com/holiman/uint256"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -24,6 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/ethereum/go-ethereum/triedb/hashdb"
+	"github.com/holiman/uint256"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/srcmap"
@@ -79,6 +77,8 @@ type Host struct {
 	// src-maps are disabled if this is nil.
 	srcFS   *foundry.SourceMapFS
 	srcMaps map[common.Address]*srcmap.SourceMap
+
+	onLabel []func(name string, addr common.Address)
 }
 
 // NewHost creates a Host that can load contracts from the given Artifacts FS,
@@ -527,7 +527,11 @@ func (h *Host) EnforceMaxCodeSize(v bool) {
 func (h *Host) LogCallStack() {
 	for _, cf := range h.callStack {
 		callsite := ""
-		if srcMap, ok := h.srcMaps[cf.Ctx.Address()]; ok {
+		srcMap, ok := h.srcMaps[cf.Ctx.Address()]
+		if !ok && cf.Ctx.Contract.CodeAddr != nil { // if delegate-call, we might know the implementation code.
+			srcMap, ok = h.srcMaps[*cf.Ctx.Contract.CodeAddr]
+		}
+		if ok {
 			callsite = srcMap.FormattedInfo(cf.LastPC)
 			if callsite == "unknown:0:0" {
 				callsite = srcMap.FormattedInfo(cf.LastJumpPC)
@@ -548,6 +552,10 @@ func (h *Host) LogCallStack() {
 func (h *Host) Label(addr common.Address, label string) {
 	h.log.Debug("labeling", "addr", addr, "label", label)
 	h.labels[addr] = label
+
+	for _, fn := range h.onLabel {
+		fn(label, addr)
+	}
 }
 
 // NewScriptAddress creates a new address for the ScriptDeployer account, and bumps the nonce.
@@ -562,4 +570,22 @@ func (h *Host) NewScriptAddress() common.Address {
 
 func (h *Host) ChainID() *big.Int {
 	return new(big.Int).Set(h.chainCfg.ChainID)
+}
+
+func (h *Host) Artifacts() *foundry.ArtifactsFS {
+	return h.af
+}
+
+// RememberOnLabel links the contract source-code of srcFile upon a given label
+func (h *Host) RememberOnLabel(label, srcFile, contract string) error {
+	artifact, err := h.af.ReadArtifact(srcFile, contract)
+	if err != nil {
+		return fmt.Errorf("failed to read artifact %s (contract %s) for label %q", srcFile, contract, label)
+	}
+	h.onLabel = append(h.onLabel, func(v string, addr common.Address) {
+		if label == v {
+			h.RememberArtifact(addr, artifact, contract)
+		}
+	})
+	return nil
 }

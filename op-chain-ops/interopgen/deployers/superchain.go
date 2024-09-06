@@ -18,12 +18,20 @@ type DeploySuperchainInput struct {
 	RecommendedProtocolVersion params.ProtocolVersion
 }
 
+func (input *DeploySuperchainInput) InputSet() bool {
+	return true
+}
+
 type DeploySuperchainOutput struct {
 	SuperchainProxyAdmin  common.Address
 	SuperchainConfigImpl  common.Address
 	SuperchainConfigProxy common.Address
 	ProtocolVersionsImpl  common.Address
 	ProtocolVersionsProxy common.Address
+}
+
+func (output *DeploySuperchainOutput) CheckOutput() error {
+	return nil
 }
 
 type DeploySuperchainScript struct {

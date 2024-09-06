@@ -23,6 +23,10 @@ type DeployOPChainInput struct {
 	Opsm              common.Address
 }
 
+func (input *DeployOPChainInput) InputSet() bool {
+	return true
+}
+
 type DeployOPChainOutput struct {
 	OpChainProxyAdmin                 common.Address
 	AddressManager                    common.Address
@@ -41,6 +45,10 @@ type DeployOPChainOutput struct {
 	PermissionedDisputeGame            common.Address
 	DelayedWETHPermissionedGameProxy   common.Address
 	DelayedWETHPermissionlessGameProxy common.Address
+}
+
+func (output *DeployOPChainOutput) CheckOutput() error {
+	return nil
 }
 
 type DeployOPChainScript struct {

@@ -56,6 +56,11 @@ func rightPad32(data []byte) []byte {
 	return append(out, make([]byte, 32-(len(out)%32))...)
 }
 
+type settableField struct {
+	name  string
+	value *reflect.Value
+}
+
 // Precompile is a wrapper around a Go object, making it a precompile.
 type Precompile[E any] struct {
 	Precompile E
@@ -63,7 +68,7 @@ type Precompile[E any] struct {
 	fieldsOnly bool
 
 	fieldSetter bool
-	settable    map[[4]byte]*reflect.Value
+	settable    map[[4]byte]*settableField
 
 	// abiMethods is effectively the jump-table for 4-byte ABI calls to the precompile.
 	abiMethods map[[4]byte]*precompileFunc
@@ -95,7 +100,7 @@ func NewPrecompile[E any](e E, opts ...PrecompileOption[E]) (*Precompile[E], err
 		abiMethods:  make(map[[4]byte]*precompileFunc),
 		fieldsOnly:  false,
 		fieldSetter: false,
-		settable:    make(map[[4]byte]*reflect.Value),
+		settable:    make(map[[4]byte]*settableField),
 	}
 	for _, opt := range opts {
 		opt(out)
@@ -513,7 +518,10 @@ func (p *Precompile[E]) setupStructField(fieldDef *reflect.StructField, fieldVal
 	}
 	// register field as settable
 	if p.fieldSetter && fieldDef.Type.AssignableTo(typeFor[common.Address]()) {
-		p.settable[byte4Sig] = fieldVal
+		p.settable[byte4Sig] = &settableField{
+			name:  fieldDef.Name,
+			value: fieldVal,
+		}
 	}
 	return nil
 }
@@ -526,15 +534,19 @@ func (p *Precompile[E]) setupFieldSetter() {
 		goName:       "__fieldSetter___",
 		abiSignature: setterFnSig,
 		fn: func(input []byte) ([]byte, error) {
-			if len(input) != 4+20 {
+			if len(input) != 32*2 {
 				return nil, fmt.Errorf("cannot set address field to %d bytes", len(input))
 			}
+			if [32 - 4]byte(input[4:32]) != ([32 - 4]byte{}) {
+				return nil, fmt.Errorf("unexpected selector content, input: %x", input[:])
+			}
 			selector := [4]byte(input[:4])
-			v, ok := p.settable[selector]
+			f, ok := p.settable[selector]
 			if !ok {
 				return nil, fmt.Errorf("unknown address field selector 0x%x", selector)
 			}
-			v.Set(reflect.ValueOf(common.Address(input[4:])))
+			addr := common.Address(input[32*2-20 : 32*2])
+			f.value.Set(reflect.ValueOf(addr))
 			return nil, nil
 		},
 	}

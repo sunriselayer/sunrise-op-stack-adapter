@@ -22,6 +22,10 @@ type DeployImplementationsInput struct {
 	UseInterop            bool // if true, deploy Interop implementations
 }
 
+func (input *DeployImplementationsInput) InputSet() bool {
+	return true
+}
+
 type DeployImplementationsOutput struct {
 	Opsm                             common.Address
 	DelayedWETHImpl                  common.Address
@@ -34,6 +38,10 @@ type DeployImplementationsOutput struct {
 	L1StandardBridgeImpl             common.Address
 	OptimismMintableERC20FactoryImpl common.Address
 	DisputeGameFactoryImpl           common.Address
+}
+
+func (output *DeployImplementationsOutput) CheckOutput() error {
+	return nil
 }
 
 type DeployImplementationsScript struct {
@@ -67,6 +75,19 @@ func DeployImplementations(l1Host *script.Host, input *DeployImplementationsInpu
 		return nil, fmt.Errorf("failed to load %s script: %w", implContract, err)
 	}
 	defer cleanupDeploy()
+
+	if err := l1Host.RememberOnLabel("OPStackManager", "OPStackManager.sol", "OPStackManager"); err != nil {
+		return nil, fmt.Errorf("failed to link OPStackManager label")
+	}
+
+	// So we can see in detail where the SystemConfig interop initializer fails
+	sysConfig := "SystemConfig"
+	if input.UseInterop {
+		sysConfig = "SystemConfigInterop"
+	}
+	if err := l1Host.RememberOnLabel("SystemConfigImpl", sysConfig+".sol", sysConfig); err != nil {
+		return nil, fmt.Errorf("failed to link SystemConfig label")
+	}
 
 	if err := deployScript.Run(inputAddr, outputAddr); err != nil {
 		return nil, fmt.Errorf("failed to run %s script: %w", implContract, err)
